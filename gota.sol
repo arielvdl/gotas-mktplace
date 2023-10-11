@@ -109,7 +109,8 @@ contract GotasNFTMarketplace is Ownable, ReentrancyGuard, Pausable {
     nextListingId++;
 }
 
-  function buyNFT(uint256 _listingId)
+
+function buyNFT(uint256 _listingId)
     external
     payable
     whenNotPaused
@@ -129,21 +130,31 @@ contract GotasNFTMarketplace is Ownable, ReentrancyGuard, Pausable {
     uint256 royaltyAmount = (listing.price * royaltyPercentage) / 10000;
     uint256 platformFee = (listing.price * platformFeePercentage) / 10000;
     uint256 sellerAmount = listing.price - royaltyAmount - platformFee;
+
+    IERC721 nftContract = IERC721(listing.nftContractAddress);
     for (uint256 i = 0; i < listing.nftIds.length; i++) {
         uint256 _nftId = listing.nftIds[i];
         
-        IERC721(listing.nftContractAddress).transferFrom(listing.seller, msg.sender, _nftId);
+        // Verificar se este contrato esta autorizado para transferir o token em nome do vendedor
+        require(
+            nftContract.getApproved(_nftId) == address(this),
+            "Contract is not approved to transfer this NFT."
+        );
+
+        // Transferir o token
+        nftContract.transferFrom(listing.seller, msg.sender, _nftId);
     }
-    
-    // Transfer payments
+
+    // Transferir pagamentos
     payable(listing.seller).transfer(sellerAmount);
     payable(royaltyAddress).transfer(royaltyAmount);
     payable(platformFeeAddress).transfer(platformFee);
     
-    // Emita o evento apos as transferencias para garantir que tudo foi bem-sucedido
+    // Emitir o evento apos as transferencias para garantir que tudo foi bem-sucedido
     emit NFTSold(_listingId, listing.seller, msg.sender, listing.price);
-}
 
+    // Seu código para remover o listing poderia entrar aqui, se necessário
+}
 
     function cancelListing(uint256 _listingId) external nonReentrant {
         require(
