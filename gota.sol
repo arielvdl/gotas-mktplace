@@ -126,30 +126,35 @@ function buyNFT(uint256 _listingId)
         msg.value == listing.price,
         "Sent value must be equal to the listing price."
     );
+
+    IERC721 nftContract = IERC721(listing.nftContractAddress);
+
     uint256 royaltyAmount = (listing.price * royaltyPercentage) / 10000;
     uint256 platformFee = (listing.price * platformFeePercentage) / 10000;
     uint256 sellerAmount = listing.price - royaltyAmount - platformFee;
 
-    IERC721 nftContract = IERC721(listing.nftContractAddress);
     for (uint256 i = 0; i < listing.nftIds.length; i++) {
         uint256 _nftId = listing.nftIds[i];
-
+        
+        // Verify that this contract is authorized to transfer the NFT on behalf of the seller
         require(
             nftContract.getApproved(_nftId) == address(this),
             "Contract is not approved to transfer this NFT."
         );
 
+        // Transfer the NFT
         nftContract.transferFrom(listing.seller, msg.sender, _nftId);
     }
 
-    // Transferir pagamentos
+    // Transfer payments
     payable(listing.seller).transfer(sellerAmount);
     payable(royaltyAddress).transfer(royaltyAmount);
     payable(platformFeeAddress).transfer(platformFee);
-    
-    emit NFTSold(_listingId, listing.seller, msg.sender, listing.price);
 
+    // Emit event after transfers to ensure all went well
+    emit NFTSold(_listingId, listing.seller, msg.sender, listing.price);
 }
+
 
 
     function cancelListing(uint256 _listingId) external nonReentrant {
