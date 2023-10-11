@@ -70,7 +70,7 @@ contract GotasNFTMarketplace is Ownable, ReentrancyGuard, Pausable {
         return true;
     }
 
-    function listNFT(
+  function listNFT(
     address _nftContractAddress,
     uint256[] memory _nftIds,
     uint256 _price,
@@ -86,11 +86,8 @@ contract GotasNFTMarketplace is Ownable, ReentrancyGuard, Pausable {
             nftContract.ownerOf(_nftId) == msg.sender,
             "You must own the NFT to list it."
         );
-        // Verificação adicional para garantir que o contrato está aprovado para transferir o NFT
-        require(
-            nftContract.getApproved(_nftId) == address(this),
-            "Contract must be approved to transfer NFTs."
-        );
+        // Aprovar este contrato para transferir o NFT em nome do vendedor
+        nftContract.approve(address(this), _nftId);
     }
     listings[nextListingId] = Listing({
         nftContractAddress: _nftContractAddress,
@@ -112,48 +109,42 @@ contract GotasNFTMarketplace is Ownable, ReentrancyGuard, Pausable {
     nextListingId++;
 }
 
-    function buyNFT(uint256 _listingId)
-        external
-        payable
-        whenNotPaused
-        nonReentrant
-    {
-        require(msg.value > 0, "Sent value must be greater than zero.");
-        Listing storage listing = listings[_listingId];
-        require(listing.seller != address(0), "Listing does not exist.");
-        require(
-            block.timestamp <= listing.deadline,
-            "This listing has expired."
+  function buyNFT(uint256 _listingId)
+    external
+    payable
+    whenNotPaused
+    nonReentrant
+{
+    require(msg.value > 0, "Sent value must be greater than zero.");
+    Listing storage listing = listings[_listingId];
+    require(listing.seller != address(0), "Listing does not exist.");
+    require(
+        block.timestamp <= listing.deadline,
+        "This listing has expired."
+    );
+    require(
+        msg.value == listing.price,
+        "Sent value must be equal to the listing price."
+    );
+    uint256 royaltyAmount = (listing.price * royaltyPercentage) / 10000;
+    uint256 platformFee = (listing.price * platformFeePercentage) / 10000;
+    uint256 sellerAmount = listing.price - royaltyAmount - platformFee;
+    for (uint256 i = 0; i < listing.nftIds.length; i++) {
+        uint256 _nftId = listing.nftIds[i];
+        // A lógica original de transferir do vendedor para o comprador
+        IERC721(listing.nftContractAddress).transferFrom(
+            listing.seller,
+            msg.sender,
+            _nftId
         );
-        require(
-            msg.value == listing.price,
-            "Sent value must be equal to the listing price."
-        );
-        uint256 royaltyAmount = (listing.price * royaltyPercentage) / 10000;
-        uint256 platformFee = (listing.price * platformFeePercentage) / 10000;
-        uint256 sellerAmount = listing.price - royaltyAmount - platformFee;
-        // Transfira os NFTs para o comprador
-        for (uint256 i = 0; i < listing.nftIds.length; i++) {
-            uint256 _nftId = listing.nftIds[i];
-            require(
-                IERC721(listing.nftContractAddress).ownerOf(_nftId) ==
-                    listing.seller,
-                "Seller no longer owns one of the NFTs."
-            );
-            IERC721(listing.nftContractAddress).transferFrom(
-                listing.seller,
-                msg.sender,
-                _nftId
-            );
-        }
-        // Transfira os pagamentos
-        payable(listing.seller).transfer(sellerAmount);
-        payable(royaltyAddress).transfer(royaltyAmount);
-        payable(platformFeeAddress).transfer(platformFee);
-        // Emita o evento após as transferências para garantir que tudo foi bem-sucedido
-        emit NFTSold(_listingId, listing.seller, msg.sender, listing.price);
     }
-
+    // Transfer payments
+    payable(listing.seller).transfer(sellerAmount);
+    payable(royaltyAddress).transfer(royaltyAmount);
+    payable(platformFeeAddress).transfer(platformFee);
+    // Emita o evento após as transferências para garantir que tudo foi bem-sucedido
+    emit NFTSold(_listingId, listing.seller, msg.sender, listing.price);
+}
     function cancelListing(uint256 _listingId) external nonReentrant {
         require(
             listingOwners[_listingId] == msg.sender,
