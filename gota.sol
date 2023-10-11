@@ -71,41 +71,46 @@ contract GotasNFTMarketplace is Ownable, ReentrancyGuard, Pausable {
     }
 
     function listNFT(
-        address _nftContractAddress,
-        uint256[] memory _nftIds,
-        uint256 _price,
-        uint256 _deadline
-    ) external whenNotPaused nonReentrant {
-        require(_price > 0, "Price must be greater than zero.");
-        require(_deadline > 0, "Deadline must be greater than zero.");
-        require(_nftIds.length > 0, "Must list at least one NFT.");
-        IERC721 nftContract = IERC721(_nftContractAddress);
-        for (uint256 i = 0; i < _nftIds.length; i++) {
-            uint256 _nftId = _nftIds[i];
-            require(
-                nftContract.ownerOf(_nftId) == msg.sender,
-                "You must own the NFT to list it."
-            );
-        }
-        listings[nextListingId] = Listing({
-            nftContractAddress: _nftContractAddress,
-            nftIds: _nftIds,
-            seller: msg.sender,
-            price: _price,
-            deadline: block.timestamp + _deadline
-        });
-        listingOwners[nextListingId] = msg.sender;
-        activeListingIds.push(nextListingId);
-        emit NFTListed(
-            nextListingId,
-            msg.sender,
-            _nftContractAddress,
-            _nftIds,
-            _price,
-            block.timestamp + _deadline
+    address _nftContractAddress,
+    uint256[] memory _nftIds,
+    uint256 _price,
+    uint256 _deadline
+) external whenNotPaused nonReentrant {
+    require(_price > 0, "Price must be greater than zero.");
+    require(_deadline > 0, "Deadline must be greater than zero.");
+    require(_nftIds.length > 0, "Must list at least one NFT.");
+    IERC721 nftContract = IERC721(_nftContractAddress);
+    for (uint256 i = 0; i < _nftIds.length; i++) {
+        uint256 _nftId = _nftIds[i];
+        require(
+            nftContract.ownerOf(_nftId) == msg.sender,
+            "You must own the NFT to list it."
         );
-        nextListingId++;
+        // Verificação adicional para garantir que o contrato está aprovado para transferir o NFT
+        require(
+            nftContract.getApproved(_nftId) == address(this),
+            "Contract must be approved to transfer NFTs."
+        );
     }
+    listings[nextListingId] = Listing({
+        nftContractAddress: _nftContractAddress,
+        nftIds: _nftIds,
+        seller: msg.sender,
+        price: _price,
+        deadline: block.timestamp + _deadline
+    });
+    listingOwners[nextListingId] = msg.sender;
+    activeListingIds.push(nextListingId);
+    emit NFTListed(
+        nextListingId,
+        msg.sender,
+        _nftContractAddress,
+        _nftIds,
+        _price,
+        block.timestamp + _deadline
+    );
+    nextListingId++;
+}
 
     function buyNFT(uint256 _listingId)
         external
