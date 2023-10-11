@@ -109,7 +109,6 @@ contract GotasNFTMarketplace is Ownable, ReentrancyGuard, Pausable {
     nextListingId++;
 }
 
-
 function buyNFT(uint256 _listingId)
     external
     payable
@@ -134,14 +133,12 @@ function buyNFT(uint256 _listingId)
     IERC721 nftContract = IERC721(listing.nftContractAddress);
     for (uint256 i = 0; i < listing.nftIds.length; i++) {
         uint256 _nftId = listing.nftIds[i];
-        
-        // Verificar se este contrato esta autorizado para transferir o token em nome do vendedor
+
         require(
             nftContract.getApproved(_nftId) == address(this),
             "Contract is not approved to transfer this NFT."
         );
 
-        // Transferir o token
         nftContract.transferFrom(listing.seller, msg.sender, _nftId);
     }
 
@@ -150,11 +147,10 @@ function buyNFT(uint256 _listingId)
     payable(royaltyAddress).transfer(royaltyAmount);
     payable(platformFeeAddress).transfer(platformFee);
     
-    // Emitir o evento apos as transferencias para garantir que tudo foi bem-sucedido
     emit NFTSold(_listingId, listing.seller, msg.sender, listing.price);
 
-    // Seu código para remover o listing poderia entrar aqui, se necessário
 }
+
 
     function cancelListing(uint256 _listingId) external nonReentrant {
         require(
