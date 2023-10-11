@@ -146,7 +146,7 @@ function buyNFT(uint256 _listingId)
         nftContract.transferFrom(listing.seller, msg.sender, _nftId);
     }
 
-    // Transfer payments
+    // Transfer payments - id 010101
     payable(listing.seller).transfer(sellerAmount);
     payable(royaltyAddress).transfer(royaltyAmount);
     payable(platformFeeAddress).transfer(platformFee);
